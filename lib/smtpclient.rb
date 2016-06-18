@@ -14,6 +14,12 @@ class BasicParser
   end
 end
 
+class InitCommand
+  def generate
+    nil
+  end
+end
+
 class EhloCommand
   def initialize(hostname)
     @hostname = hostname
@@ -66,5 +72,28 @@ end
 class QuitCommand
   def generate
     yield "QUIT\r\n"
+  end
+end
+
+class SendMail
+  def initialize(from, to, payload)
+    to = to.is_a?(String) ? [to] : to
+    @current = InitCommand.new
+    @actions = [ EhloCommand.new("client"), MailCommand.new(from) ]
+    @actions += to.map { |recipient| RcptCommand.new(recipient) }
+    @actions += [ DataCommand.new, PayloadCommand.new(payload), QuitCommand.new ]
+    @buffer = ''
+  end
+
+  def read(data)
+    @buffer << data
+    while newline_index = @buffer.index("\r\n")
+      line = @buffer.slice!(0, newline_index + 1)
+      #@current.parse line
+      @current = @actions.shift
+      reply = ''
+      @current.generate { |data| reply << data }
+    end
+    reply
   end
 end
