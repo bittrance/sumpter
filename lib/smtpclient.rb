@@ -3,24 +3,41 @@ require 'ione'
 require "smtpclient/version"
 
 class BasicParser
+  def initialize
+    @buffer = ''
+    @line_re = /^(?<code>[0-9]+)(?<sep>[- ]?)(?<message>.*)$/
+    @reply = []
+  end
+
   def receive(data)
-    status = nil
-    parsed = data.each_line.map do |line|
+    @buffer << data
+    while newline_index = @buffer.index("\r\n")
+      line = @buffer.slice!(0, newline_index + 1)
       line.chomp!
-      status, msg = line.split(/[ -]+/, 2)
-      msg
+      res = @line_re.match(line)
+      @reply << res[:message]
+      if res[:sep] == ' ' or res[:sep] == ''
+        yield [res[:code]] + @reply
+        @reply.clear
+      end
     end
-    parsed.unshift status
   end
 end
 
-class InitCommand
+class BaseCommand
+  attr_accessor :promise
+
+  def receive(data)
+  end
+end
+
+class InitCommand < BaseCommand
   def generate
     nil
   end
 end
 
-class EhloCommand
+class EhloCommand < BaseCommand
   def initialize(hostname)
     @hostname = hostname
   end
@@ -28,9 +45,14 @@ class EhloCommand
   def generate
     yield "EHLO #{@hostname}\r\n"
   end
+
+  def receive(lines)
+    status, *parsed = lines
+    promise.fulfill(parsed)
+  end
 end
 
-class MailCommand
+class MailCommand < BaseCommand
   def initialize(sender)
     @sender = sender
   end
@@ -40,7 +62,7 @@ class MailCommand
   end
 end
 
-class RcptCommand
+class RcptCommand < BaseCommand
   def initialize(recipient)
     @recipient = recipient
   end
@@ -50,13 +72,13 @@ class RcptCommand
   end
 end
 
-class DataCommand
+class DataCommand < BaseCommand
   def generate
     yield "DATA\r\n"
   end
 end
 
-class PayloadCommand
+class PayloadCommand < BaseCommand
   def initialize(stream)
     @stream = stream
   end
@@ -67,33 +89,84 @@ class PayloadCommand
     end
     yield ".\r\n"
   end
+
+  def receive(lines)
+    status, *parsed = lines
+    promise.fulfill(parsed)
+  end
 end
 
-class QuitCommand
+class QuitCommand < BaseCommand
   def generate
     yield "QUIT\r\n"
   end
 end
 
 class SendMail
-  def initialize(from, to, payload)
+  # TODO: tests for this property
+  attr_reader :state
+
+  def initialize(connection)
+    @connection = connection
+    @actions = []
+    @await_reply = []
+    @parser = BasicParser.new
+    @state = 'pending'
+  end
+
+  # TODO: test explicit start
+  def start
+    # TODO: guard @state == 'pending'
+    # TODO: if resulting promse fails, QuitCommand and die
+    future = add_action_group [ InitCommand.new, EhloCommand.new("client") ]
+    next_action
+    future
+  end
+
+  def send(from, to, payload)
+    # TODO: Guard state dead?
+    start if @state == 'pending'
     to = to.is_a?(String) ? [to] : to
-    @current = InitCommand.new
-    @actions = [ EhloCommand.new("client"), MailCommand.new(from) ]
-    @actions += to.map { |recipient| RcptCommand.new(recipient) }
-    @actions += [ DataCommand.new, PayloadCommand.new(payload), QuitCommand.new ]
-    @buffer = ''
+    future = add_action_group [
+      MailCommand.new(from),
+      *to.map { |recipient| RcptCommand.new(recipient) },
+      DataCommand.new,
+      PayloadCommand.new(payload)
+    ]
+    next_action if @state == 'idle'
+    future
+  end
+
+  def quit
+    # TODO: set @state = 'dead' when future completed - with tests!
+    add_action_group [ QuitCommand.new ]
   end
 
   def read(data)
-    @buffer << data
-    while newline_index = @buffer.index("\r\n")
-      line = @buffer.slice!(0, newline_index + 1)
-      #@current.parse line
-      @current = @actions.shift
-      reply = ''
-      @current.generate { |data| reply << data }
+    @parser.receive(data) do |lines|
+      action = @await_reply.pop
+      action.receive lines
+      next_action
     end
-    reply
+    @state = 'idle' # TODO: we don't know this
+  end
+
+  private
+
+  def add_action_group(group)
+    p = Ione::Promise.new
+    group.each do |action|
+      action.promise = p
+      @actions << action
+    end
+    p.future
+  end
+
+  def next_action
+    return if @actions.empty?
+    @state = 'running'
+    action = @actions.shift
+    action.generate { |data| @connection.write data }
+    @await_reply << action
   end
 end

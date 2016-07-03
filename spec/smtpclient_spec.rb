@@ -1,29 +1,53 @@
 # require 'spec_helper'
 require 'smtpclient'
 
-describe 'ClientCommands' do
-  describe BasicParser do
-    it 'should parse singleline replies' do
-      parser = BasicParser.new
-      parsed = parser.receive "250 Some explanation\r\n"
-      expect(parsed).to eq(["250", "Some explanation"])
-    end
-
-    it 'should parse multiline replies' do
-      parser = BasicParser.new
-      parsed = parser.receive "250-mail.example.com.\r\n250-PIPELINING\r\n250 ENHANCEDSTATUSCODES\r\n"
-      expect(parsed).to eq(
-        [ "250", "mail.example.com.", "PIPELINING", "ENHANCEDSTATUSCODES" ]
-      )
-    end
+describe BasicParser do
+  it 'should parse singleline replies' do
+    parser = BasicParser.new
+    parsed = []
+    parser.receive("250 Some explanation\r\n") { |line| parsed << line }
+    expect(parsed).to eq([["250", "Some explanation"]])
   end
+
+  it 'should parse code only' do
+    parser = BasicParser.new
+    parsed = []
+    parser.receive("250\r\n") { |line| parsed << line }
+    expect(parsed).to eq([["250", '']])
+  end
+
+  it 'should parse fragments' do
+    parser = BasicParser.new
+    parsed = []
+    parser.receive("250 Some ex") { |line| parsed << line }
+    parser.receive("planation\r\n") { |line| parsed << line }
+    expect(parsed).to eq([["250", "Some explanation"]])
+  end
+
+  it 'should parse multiline replies' do
+    parser = BasicParser.new
+    parsed = []
+    parser.receive("250-mail.example.com.\r\n250-") { |line| parsed << line }
+    parser.receive("PIPELINING\r\n250 ENHANCEDSTATUSCODES\r\n") { |line| parsed << line }
+    expect(parsed).to eq([
+    [ "250", "mail.example.com.", "PIPELINING", "ENHANCEDSTATUSCODES" ]
+    ])
+  end
+end
+
+describe 'ClientCommands' do
 
   describe 'commands' do
     it 'ehlo' do
       ehlo = EhloCommand.new "my-hostname"
+      ehlo.promise = Ione::Promise.new
       command = ''
       ehlo.generate { |line| command << line }
+      expect(ehlo.promise.future.resolved?).to be(false)
       expect(command).to eq("EHLO my-hostname\r\n")
+      ehlo.receive ["250", "mail.example.com.", "PIPELINING"]
+      expect(ehlo.promise.future.resolved?).to be(true)
+      expect(ehlo.promise.future.value).to eq(['mail.example.com.', 'PIPELINING'])
     end
 
     it 'mail from' do
