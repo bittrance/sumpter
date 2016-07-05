@@ -92,7 +92,7 @@ class PayloadCommand < BaseCommand
 
   def receive(lines)
     status, *parsed = lines
-    promise.fulfill(parsed)
+    promise.fulfill(status == '250')
   end
 end
 
@@ -119,13 +119,15 @@ class SendMail
     # TODO: guard @state == 'pending'
     # TODO: if resulting promse fails, QuitCommand and die
     future = add_action_group [ InitCommand.new, EhloCommand.new("client") ]
+    @state = 'idle' # TODO: Test for state
     next_action
+    @connection.on_data(&method(:read))
     future
   end
 
   def send(from, to, payload)
     # TODO: Guard state dead?
-    start if @state == 'pending'
+    start if @state == 'pending' # FIXME: This is a future!
     to = to.is_a?(String) ? [to] : to
     future = add_action_group [
       MailCommand.new(from),
@@ -143,6 +145,7 @@ class SendMail
   end
 
   def read(data)
+    puts '<- ' + data
     @parser.receive(data) do |lines|
       action = @await_reply.pop
       action.receive lines
@@ -166,7 +169,48 @@ class SendMail
     return if @actions.empty?
     @state = 'running'
     action = @actions.shift
-    action.generate { |data| @connection.write data }
+    action.generate { |data|
+      puts '-> ' + data
+      @connection.write data
+    }
     @await_reply << action
+  end
+end
+
+class SmtpClient
+
+  module Factories
+    def syncClient(host, port)
+      client = SmtpClient.new(host, port)
+      Ione::Future.await(client.start)
+    end
+  end
+
+  extend Factories
+
+  def initialize(host, port)
+    @host = host
+    @port = port
+    @reactor = Ione::Io::IoReactor.new
+  end
+
+  def start
+    @reactor.start
+    .then { @reactor.connect(@host, @port) }
+    .then { |conn|
+      @handler = SendMail.new(conn)
+      @handler.start
+    }
+    .map(self)
+  end
+
+  def send(from, to, message)
+    Ione::Future.await(@handler.send(from, to, message))
+  end
+
+  def stop
+    @handler.quit.then {
+      @reactor.stop
+    }
   end
 end

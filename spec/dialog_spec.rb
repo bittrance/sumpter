@@ -6,9 +6,14 @@ class MockConnection
   def initialize
     @answer = ''
   end
+
+  def on_data
+  end
+
   def write(data)
     @answer << data
   end
+
   def get_answer
     tmp = @answer
     @answer = ''

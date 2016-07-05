@@ -79,10 +79,6 @@ describe 'ClientCommands' do
       expect(command).to eq("A payload\r\n.\r\n")
     end
 
-    it 'should refuse to send payloads that are known to be too large' do
-
-    end
-
     it 'quit' do
       quit = QuitCommand.new
       command = ''
@@ -93,5 +89,14 @@ describe 'ClientCommands' do
 
   it 'has a version number' do
     expect(Smtpclient::VERSION).not_to be nil
+  end
+end
+
+describe 'SmtpClient' do
+  it 'should provide synchronous clients' do
+    client = SmtpClient.syncClient('localhost', 25)
+    res = client.send('from@me.com', 'quest@waiwai.windwards.net', StringIO.new('message'))
+    expect(res).to eq(true) # indicates success for now
+    client.stop
   end
 end
