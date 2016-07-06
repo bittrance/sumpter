@@ -41,6 +41,9 @@ describe SendMail do
     result = f.value
     expect(result).to eq(["mail.example.com."])
   end
+
+  # TODO: test that proves we can accept send before start is done
+
 end
 
 describe 'dialog' do
@@ -78,6 +81,49 @@ describe 'dialog' do
         ["250\r\n", nil]
       ]
     },
+    # {
+    #   desc: 'pipelining, two recipients',
+    #   sendargs: [
+    #     ['from@me.com', ['to@you.com', 'cc@you.com'], StringIO.new('message')],
+    #   ],
+    #   dialog: [
+    #     ["220 testscript\r\n", /ehlo client/i],
+    #     ["250-PIPELINING\r\n250 mailserver.example.com.\r\n",
+    #       /mail.*from@me.example.com.*rcpt.*to@you.example.com.*cc@you.example.com.*data/i],
+    #     ["250 OK\r\n250 OK\r\n 250 OK\r\n354\r\n", /message.*quit/i],
+    #     ["250 OK\r\n250 Bye\r\n", nil]
+    #   ]
+    # },
+    #
+    # # Error cases below
+    #
+    # {
+    #   desc: 'invalid from address',
+    #   sendargs: [
+    #     ['@', 'to@you.com', StringIO.new('message')]
+    #   ],
+    #   dialog: [
+    #     ["220 testscript\r\n", /ehlo client/i],
+    #     ["250 mailserver.example.com.\r\n", /mail from.*/i],
+    #     ["501 Bad sender\r\n", nil]
+    #   ]
+    # },
+    # {
+    #   desc: 'invalid from address followed by well-formatted send',
+    #   sendargs: [
+    #     ['@', 'to@you.com', StringIO.new('message')],
+    #     ['from@me.com', 'to@you.com', StringIO.new('message1')]
+    #   ],
+    #   dialog: [
+    #     ["220 testscript\r\n", /ehlo client/i],
+    #     ["250 mailserver.example.com.\r\n", /mail from.*/i],
+    #     ["501 Bad sender\r\n", /mail.*<from@me.com>/i], # crap, let's try next message
+    #     ["250 OK\r\n", /rcpt.*<to@alterego.com>/i],
+    #     ["250 OK\r\n", /data/i],
+    #     ["354\r\n", /message/i],
+    #     ["250\r\n", nil]
+    #   ]
+    # }
 
   ]
 
@@ -94,6 +140,7 @@ describe 'dialog' do
     it 'should handle ' + onecase[:desc] do
       conn = MockConnection.new
       actor = SendMail.new(conn)
+      actor.start
       futures = []
       onecase[:sendargs].each do |args|
         futures << actor.send(*args)
@@ -111,6 +158,7 @@ describe 'dialog' do
   it 'should handle spaced sends' do
     conn = MockConnection.new
     actor = SendMail.new(conn)
+    actor.start
     actor.send('from@me.com', 'to@you.com', StringIO.new('message1'))
     assert_dialog(conn, actor, [
       ["220 testscript\r\n", /ehlo client/i],

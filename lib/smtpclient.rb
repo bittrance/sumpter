@@ -118,16 +118,15 @@ class SendMail
   def start
     # TODO: guard @state == 'pending'
     # TODO: if resulting promse fails, QuitCommand and die
-    future = add_action_group [ InitCommand.new, EhloCommand.new("client") ]
-    @state = 'idle' # TODO: Test for state
-    next_action
+    future = add_action_group [ EhloCommand.new("client") ]
+    @await_reply << InitCommand.new
     @connection.on_data(&method(:read))
     future
   end
 
   def send(from, to, payload)
     # TODO: Guard state dead?
-    start if @state == 'pending' # FIXME: This is a future!
+    # start if @state == 'pending' # FIXME: This is a future!
     to = to.is_a?(String) ? [to] : to
     future = add_action_group [
       MailCommand.new(from),
@@ -149,9 +148,8 @@ class SendMail
     @parser.receive(data) do |lines|
       action = @await_reply.pop
       action.receive lines
-      next_action
+      next_action if @state == 'pending' || @state == 'idle'
     end
-    @state = 'idle' # TODO: we don't know this
   end
 
   private
@@ -174,6 +172,7 @@ class SendMail
       @connection.write data
     }
     @await_reply << action
+    @state = 'idle' # TODO: Test for state
   end
 end
 
