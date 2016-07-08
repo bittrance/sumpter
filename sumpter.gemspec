@@ -1,17 +1,17 @@
 # coding: utf-8
 lib = File.expand_path('../lib', __FILE__)
 $LOAD_PATH.unshift(lib) unless $LOAD_PATH.include?(lib)
-require 'smtpclient/version'
+require 'sumpter/version'
 
 Gem::Specification.new do |spec|
-  spec.name          = "smtpclient"
-  spec.version       = Smtpclient::VERSION
+  spec.name          = "sumpter"
+  spec.version       = Sumpter::VERSION
   spec.authors       = ["Quest"]
   spec.email         = ["quest@lysator.liu.se"]
 
   spec.summary       = "Non-blocking SMTP lib"
   spec.description   = "Lib for interacting with SMTP servers, based on ione"
-  spec.homepage      = "https://github.com/bittrance/smtpclient"
+  spec.homepage      = "https://github.com/bittrance/sumpter"
   spec.license       = "MIT"
 
   # Prevent pushing this gem to RubyGems.org. To allow pushes either set the 'allowed_push_host'
