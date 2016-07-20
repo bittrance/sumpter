@@ -1,4 +1,5 @@
-require 'sumpter'
+require 'ione'
+require 'sumpter/commands'
 
 describe 'commands' do
   it 'ehlo' do

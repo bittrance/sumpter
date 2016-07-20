@@ -1,6 +1,6 @@
 # require 'spec_helper'
 require 'ione'
-require 'sumpter'
+require 'sumpter/dialog'
 
 class MockConnection
   def initialize
@@ -21,10 +21,10 @@ class MockConnection
   end
 end
 
-describe Sumpter::SendMail do
+describe Sumpter::SMTPDialog do
   it 'should be async and startable' do
     conn = MockConnection.new
-    actor = Sumpter::SendMail.new(conn)
+    actor = Sumpter::SMTPDialog.new(conn)
     r = Ione::Io::IoReactor.new
     f = r.start
     f = f.then do
@@ -139,7 +139,7 @@ describe 'dialog' do
   cases.each do |onecase|
     it 'should handle ' + onecase[:desc] do
       conn = MockConnection.new
-      actor = Sumpter::SendMail.new(conn)
+      actor = Sumpter::SMTPDialog.new(conn)
       actor.start
       futures = []
       onecase[:sendargs].each do |args|
@@ -157,7 +157,7 @@ describe 'dialog' do
 
   it 'should handle spaced sends' do
     conn = MockConnection.new
-    actor = Sumpter::SendMail.new(conn)
+    actor = Sumpter::SMTPDialog.new(conn)
     actor.start
     actor.send('from@me.com', 'to@you.com', StringIO.new('message1'))
     assert_dialog(conn, actor, [
