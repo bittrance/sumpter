@@ -19,7 +19,7 @@ module Sumpter
         res = @line_re.match(line)
         @reply << res[:message]
         if res[:sep] == ' ' or res[:sep] == ''
-          yield [res[:code]] + @reply
+          yield [res[:code].to_i] + @reply
           @reply.clear
         end
       end

@@ -38,8 +38,8 @@ describe Sumpter::SendMail do
     end
     f.on_failure { |err| puts err }
 
-    result = f.value
-    expect(result).to eq(["mail.example.com."])
+    cmd, *result = f.value
+    expect(result).to eq([250, "mail.example.com."])
   end
 
   # TODO: test that proves we can accept send before start is done
