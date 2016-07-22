@@ -23,12 +23,12 @@ end
 
 describe Sumpter::SMTPDialog do
   it 'should be async and startable' do
-    conn = MockConnection.new
-    actor = Sumpter::SMTPDialog.new(conn)
+    actor = Sumpter::SMTPDialog.new
     r = Ione::Io::IoReactor.new
-    f = r.start
+    conn = MockConnection.new
+    f = r.start 
     f = f.then do
-      ready = actor.start
+      ready = actor.start conn
       actor.read "220 testscript\r\n"
       expect(conn.get_answer).to match(/ehlo.*/i)
       actor.read "250 mail.example.com.\r\n"
@@ -138,9 +138,9 @@ describe 'dialog' do
 
   cases.each do |onecase|
     it 'should handle ' + onecase[:desc] do
+      actor = Sumpter::SMTPDialog.new
       conn = MockConnection.new
-      actor = Sumpter::SMTPDialog.new(conn)
-      actor.start
+      actor.start conn
       futures = []
       onecase[:sendargs].each do |args|
         futures << actor.send(*args)
@@ -156,9 +156,9 @@ describe 'dialog' do
   end
 
   it 'should handle spaced sends' do
+    actor = Sumpter::SMTPDialog.new
     conn = MockConnection.new
-    actor = Sumpter::SMTPDialog.new(conn)
-    actor.start
+    actor.start conn
     actor.send('from@me.com', 'to@you.com', StringIO.new('message1'))
     assert_dialog(conn, actor, [
       ["220 testscript\r\n", /ehlo client/i],

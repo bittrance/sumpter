@@ -7,8 +7,7 @@ module Sumpter
     # TODO: tests for this property
     attr_reader :state
 
-    def initialize(connection)
-      @connection = connection
+    def initialize
       @actions = []
       @await_reply = []
       @parser = BasicParser.new
@@ -16,7 +15,8 @@ module Sumpter
     end
 
     # TODO: test explicit start
-    def start
+    def start(connection)
+      @connection = connection
       # TODO: guard @state == 'pending'
       # TODO: if resulting promse fails, QuitCommand and die
       future = add_action_group [ EhloCommand.new("client") ]
