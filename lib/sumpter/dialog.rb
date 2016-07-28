@@ -20,7 +20,7 @@ module Sumpter
       # TODO: guard @state == 'pending'
       # TODO: if resulting promse fails, QuitCommand and die
       future = add_action_group [ EhloCommand.new("client") ]
-      @await_reply << InitCommand.new
+      @await_reply << [nil, InitCommand.new]
       @connection.on_data(&method(:read))
       future
     end
@@ -47,8 +47,15 @@ module Sumpter
     def read(data)
       puts '<- ' + data
       @parser.receive(data) do |lines|
-        action = @await_reply.pop
-        action.receive lines
+        p, action = @await_reply.pop
+        begin
+          res = action.receive lines
+          p.fulfill(res) if !res.nil?
+        rescue Sumpter::CommandException => e
+          p.fail(e)
+          # Remove all subsequent commands in this group as it has failed
+          @actions.reject! { |cand, action| cand == p }
+        end
         next_action if @state == 'pending' || @state == 'idle'
       end
     end
@@ -58,8 +65,7 @@ module Sumpter
     def add_action_group(group)
       p = Ione::Promise.new
       group.each do |action|
-        action.promise = p
-        @actions << action
+        @actions << [p, action]
       end
       p.future
     end
@@ -67,12 +73,12 @@ module Sumpter
     def next_action
       return if @actions.empty?
       @state = 'running'
-      action = @actions.shift
+      p, action = @actions.shift
       action.generate { |data|
         puts '-> ' + data
         @connection.write data
       }
-      @await_reply << action
+      @await_reply << [p, action]
       @state = 'idle' # TODO: Test for state
     end
   end

@@ -26,7 +26,7 @@ describe Sumpter::SMTPDialog do
     actor = Sumpter::SMTPDialog.new
     r = Ione::Io::IoReactor.new
     conn = MockConnection.new
-    f = r.start 
+    f = r.start
     f = f.then do
       ready = actor.start conn
       actor.read "220 testscript\r\n"
@@ -53,6 +53,7 @@ describe 'dialog' do
       sendargs: [
         ['from@me.com', 'to@you.com', StringIO.new('message')]
       ],
+      returns: [true],
       dialog: [
         ["220 testscript\r\n", /ehlo client/i],
         ["250 mailserver.example.com.\r\n", /mail.*<from@me.com>/i],
@@ -68,6 +69,7 @@ describe 'dialog' do
         ['from@me.com', 'to@you.com', StringIO.new('message1')],
         ['from@me.com', 'to@alterego.com', StringIO.new('message2')]
       ],
+      returns: [true, true],
       dialog: [
         ["220 testscript\r\n", /ehlo client/i],
         ["250 mailserver.example.com.\r\n", /mail.*<from@me.com>/i],
@@ -97,17 +99,18 @@ describe 'dialog' do
     #
     # # Error cases below
     #
-    # {
-    #   desc: 'invalid from address',
-    #   sendargs: [
-    #     ['@', 'to@you.com', StringIO.new('message')]
-    #   ],
-    #   dialog: [
-    #     ["220 testscript\r\n", /ehlo client/i],
-    #     ["250 mailserver.example.com.\r\n", /mail from.*/i],
-    #     ["501 Bad sender\r\n", nil]
-    #   ]
-    # },
+    {
+      desc: 'invalid from address',
+      sendargs: [
+        ['@', 'to@you.com', StringIO.new('message')]
+      ],
+      returns: [false],
+      dialog: [
+        ["220 testscript\r\n", /ehlo client/i],
+        ["250 mailserver.example.com.\r\n", /mail from.*/i],
+        ["501 Bad sender\r\n", nil]
+      ]
+    },
     # {
     #   desc: 'invalid from address followed by well-formatted send',
     #   sendargs: [
@@ -150,8 +153,9 @@ describe 'dialog' do
       # Check the returned futures
       unfinished = futures.any? { |future| !future.completed? }
       expect(unfinished).to eq(false)
-      values = futures.map { |future| future.value }
-      #expect(values).to eq(onecase[:returns])
+      futures.zip(onecase[:returns]).each do |future, expected|
+        expect(future.resolved?).to eq(expected)
+      end
     end
   end
 

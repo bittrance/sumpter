@@ -6,31 +6,20 @@ module Sumpter
       @result = result
     end
   end
-  
-  class BaseCommand
-    attr_accessor :promise
 
+  class BaseCommand
     def receive(data)
     end
-    
+
     private
 
-    def complete_intermediate(line)
+    def maybe_fail(line)
       status, *parsed = line
       if !is_success?(status)
-        @promise.fail(CommandException.new([self] + line))
-      end      
+        raise CommandException.new([self] + line)
+      end
     end
-    
-    def complete_final(line)
-      status, *parsed = line
-      if is_success?(status)
-        @promise.fulfill([self] + line)
-      else
-        @promise.fail(CommandException.new([self] + line))
-      end      
-    end
-    
+
     def is_success?(code)
       return code >= 200 && code < 300
     end
@@ -52,7 +41,8 @@ module Sumpter
     end
 
     def receive(line)
-      complete_final(line)
+      maybe_fail(line)
+      [self] + line
     end
   end
 
@@ -64,9 +54,9 @@ module Sumpter
     def generate
       yield "MAIL FROM:<#{@sender}>\r\n"
     end
-    
+
     def receive(line)
-      complete_intermediate(line)
+      maybe_fail(line)
     end
   end
 
@@ -78,9 +68,9 @@ module Sumpter
     def generate
       yield "RCPT TO:<#{@recipient}>\r\n"
     end
-    
+
     def receive(line)
-      complete_intermediate(line)
+      maybe_fail(line)
     end
   end
 
@@ -103,7 +93,8 @@ module Sumpter
     end
 
     def receive(line)
-      complete_final(line)
+      maybe_fail(line)
+      [self] + line
     end
   end
 
@@ -111,9 +102,10 @@ module Sumpter
     def generate
       yield "QUIT\r\n"
     end
-    
+
     def receive(line)
-      complete_final(line)
+      maybe_fail(line)
+      [self] + line
     end
   end
 end
