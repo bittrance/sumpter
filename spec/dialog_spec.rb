@@ -83,19 +83,20 @@ describe 'dialog' do
         ["250\r\n", nil]
       ]
     },
-    # {
-    #   desc: 'pipelining, two recipients',
-    #   sendargs: [
-    #     ['from@me.com', ['to@you.com', 'cc@you.com'], StringIO.new('message')],
-    #   ],
-    #   dialog: [
-    #     ["220 testscript\r\n", /ehlo client/i],
-    #     ["250-PIPELINING\r\n250 mailserver.example.com.\r\n",
-    #       /mail.*from@me.example.com.*rcpt.*to@you.example.com.*cc@you.example.com.*data/i],
-    #     ["250 OK\r\n250 OK\r\n 250 OK\r\n354\r\n", /message.*quit/i],
-    #     ["250 OK\r\n250 Bye\r\n", nil]
-    #   ]
-    # },
+    {
+      desc: 'pipelining, two recipients',
+      sendargs: [
+        ['from@me.com', ['to@you.com', 'cc@you.com'], StringIO.new('message')],
+      ],
+      returns: [true],
+      dialog: [
+        ["220 testscript\r\n", /ehlo client/i],
+        ["250-PIPELINING\r\n250 mailserver.example.com.\r\n",
+          /mail.*from@me.com.*rcpt.*to@you.com.*cc@you.com.*data/im],
+        ["250 OK\r\n250 OK\r\n250 OK\r\n354\r\n", /message/i],
+        ["250 OK\r\n", nil]
+      ]
+    },
     #
     # # Error cases below
     #
@@ -110,7 +111,21 @@ describe 'dialog' do
         ["250 mailserver.example.com.\r\n", /mail from.*/i],
         ["501 Bad sender\r\n", nil]
       ]
+    },    
+    {
+      desc: 'pipelining, bad sender',
+      sendargs: [
+        ['@', 'to@you.com', StringIO.new('message')],
+      ],
+      returns: [false],
+      dialog: [
+        ["220 testscript\r\n", /ehlo client/i],
+        ["250-PIPELINING\r\n250 mailserver.example.com.\r\n",
+          /mail.*rcpt.*to@you.com.*data/im],
+        ["501 Bad sender\r\n550 No sender\r\n550 Not ready\r\n", nil]
+      ]
     },
+
     # {
     #   desc: 'invalid from address followed by well-formatted send',
     #   sendargs: [
