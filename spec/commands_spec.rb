@@ -1,4 +1,5 @@
 require 'ione'
+require 'base64'
 require 'sumpter/commands'
 
 describe 'commands' do
@@ -9,6 +10,16 @@ describe 'commands' do
     expect(command).to eq("EHLO my-hostname\r\n")
     res = ehlo.receive [250, "mail.example.com.", "PIPELINING"]
     expect(res).to eq([ehlo, 250, 'mail.example.com.', 'PIPELINING'])
+  end
+
+  it 'plain auth succeeds' do
+    auth = Sumpter::PlainAuthCommand.new('user', 'pass')
+    command = ''
+    auth.generate { |line| command << line }
+    hash = Base64.strict_encode64("user\0user\0pass")
+    expect(command).to eq("AUTH PLAIN #{hash}\r\n")
+    res = auth.receive [235, 'ok']
+    expect(res).to eq([auth, 235, 'ok'])
   end
 
   it 'mail from succeeds' do

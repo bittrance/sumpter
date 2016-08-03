@@ -25,6 +25,11 @@ module Sumpter
       future
     end
 
+    def auth(user, pass)
+      # TODO: Check capabilities when it arrives
+      add_action_group [ PlainAuthCommnad.new(user, pass) ]
+    end
+
     def send(from, to, payload)
       # TODO: Guard state dead?
       # start if @state == 'pending' # FIXME: This is a future!
@@ -35,7 +40,6 @@ module Sumpter
         DataCommand.new,
         PayloadCommand.new(payload)
       ]
-      next_action if @state == 'idle'
       future
     end
 
@@ -67,6 +71,7 @@ module Sumpter
       group.each do |action|
         @actions << [p, action]
       end
+      next_action if @state == 'idle'
       p.future
     end
 

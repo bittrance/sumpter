@@ -1,3 +1,5 @@
+require 'base64'
+
 module Sumpter
   class CommandException < Exception
     attr_reader :result
@@ -38,6 +40,23 @@ module Sumpter
 
     def generate
       yield "EHLO #{@hostname}\r\n"
+    end
+
+    def receive(line)
+      maybe_fail(line)
+      [self] + line
+    end
+  end
+
+  class PlainAuthCommand < BaseCommand
+    def initialize(user, pass)
+      @username = user
+      @password = pass
+    end
+
+    def generate
+      hash = Base64.strict_encode64("#{@username}\0#{@username}\0#{@password}")
+      yield "AUTH PLAIN #{hash}\r\n"
     end
 
     def receive(line)
