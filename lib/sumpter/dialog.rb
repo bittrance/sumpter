@@ -12,6 +12,7 @@ module Sumpter
       @await_reply = []
       @parser = BasicParser.new
       @state = 'pending'
+      @capabilities = []
     end
 
     # TODO: test explicit start
@@ -19,10 +20,15 @@ module Sumpter
       @connection = connection
       # TODO: guard @state == 'pending'
       # TODO: if resulting promse fails, QuitCommand and die
-      future = add_action_group [ EhloCommand.new("client") ]
+      f = add_action_group [ EhloCommand.new("client") ]
+      f = f.then do |res|
+        cmd, status, *caps = res 
+        @capabilities = caps 
+        res
+      end
       @await_reply << [nil, InitCommand.new]
       @connection.on_data(&method(:read))
-      future
+      f
     end
 
     def auth(user, pass)
@@ -51,17 +57,18 @@ module Sumpter
     def read(data)
       puts '<- ' + data
       @parser.receive(data) do |lines|
-        p, action = @await_reply.pop
+        p, action = @await_reply.shift
         begin
           res = action.receive lines
           p.fulfill(res) if !res.nil?
         rescue Sumpter::CommandException => e
-          p.fail(e)
+          p.fail(e) if !p.future.completed?
           # Remove all subsequent commands in this group as it has failed
           @actions.reject! { |cand, action| cand == p }
         end
-        next_action if @state == 'pending' || @state == 'idle'
       end
+      # @await_reply.empty? == no more pipelined commands pending
+      next_action if @await_reply.empty? && (@state == 'pending' || @state == 'idle')
     end
 
     private
@@ -84,6 +91,7 @@ module Sumpter
         @connection.write data
       }
       @await_reply << [p, action]
+      next_action if @capabilities.include?('PIPELINING') && action.is_pipelining?
       @state = 'idle' # TODO: Test for state
     end
   end

@@ -8,9 +8,22 @@ module Sumpter
       @result = result
     end
   end
-
+  
   class BaseCommand
+    attr_accessor :promise
+    
+    def is_pipelining?
+      false
+    end
+
+    def generate
+      # TODO: default impl or require impl
+      #  raise 'Please implement generate()'
+    end
+
     def receive(data)
+      # TODO: default impl or require impl
+      #  raise 'Please implement receive(data)'
     end
 
     private
@@ -23,7 +36,7 @@ module Sumpter
     end
 
     def is_success?(code)
-      return code >= 200 && code < 300
+      return code >= 200 && code < 400
     end
   end
 
@@ -69,6 +82,10 @@ module Sumpter
     def initialize(sender)
       @sender = sender
     end
+    
+    def is_pipelining?
+      true
+    end
 
     def generate
       yield "MAIL FROM:<#{@sender}>\r\n"
@@ -82,6 +99,10 @@ module Sumpter
   class RcptCommand < BaseCommand
     def initialize(recipient)
       @recipient = recipient
+    end
+
+    def is_pipelining?
+      true
     end
 
     def generate
