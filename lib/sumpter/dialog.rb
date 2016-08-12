@@ -22,8 +22,8 @@ module Sumpter
       # TODO: if resulting promse fails, QuitCommand and die
       f = add_action_group [ EhloCommand.new("client") ]
       f = f.then do |res|
-        cmd, status, *caps = res 
-        @capabilities = caps 
+        cmd, status, *caps = res
+        @capabilities = caps
         res
       end
       @await_reply << [nil, InitCommand.new]
@@ -33,7 +33,7 @@ module Sumpter
 
     def auth(user, pass)
       # TODO: Check capabilities when it arrives
-      add_action_group [ PlainAuthCommnad.new(user, pass) ]
+      add_action_group [ PlainAuthCommand.new(user, pass) ]
     end
 
     def send(from, to, payload)
