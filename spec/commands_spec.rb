@@ -22,6 +22,22 @@ describe 'commands' do
     expect(res).to eq([auth, 235, 'ok'])
   end
 
+  it 'login auth succeeds' do
+    auth = Sumpter::LoginAuthCommand.new('user', 'pass')
+    command = ''
+    auth.generate { |line| command << line }
+    hash = Base64.strict_encode64("user")
+    expect(command).to eq("AUTH LOGIN #{hash}\r\n")
+    res = auth.receive [334, 'UGFzc3dvcmQ6']
+    expect(res).to eq(nil)
+    command = ''
+    auth.generate { |line| command << line }
+    hash = Base64.strict_encode64("pass")
+    expect(command).to eq("#{hash}\r\n")
+    res = auth.receive [235, 'ok']
+    expect(res).to eq([auth, 235, 'ok'])
+  end
+
   it 'mail from succeeds' do
     mail = Sumpter::MailCommand.new "user@here.example.com"
     command = ''

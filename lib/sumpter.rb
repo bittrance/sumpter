@@ -72,5 +72,6 @@ module Sumpter
     if username.nil? ^ password.nil?
       raise Exception.new("Expect username/password, got #{username}/#{password}")
     end
+    !username.nil?
   end
 end
