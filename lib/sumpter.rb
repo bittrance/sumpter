@@ -5,7 +5,25 @@ require "sumpter/version"
 
 module Sumpter
   class AsyncClient
-    def initialize(host, port)
+    def initialize(host, port = nil, ssl = false)
+      @options = {}
+      
+      if port.nil?
+        port = !ssl.nil? ? 465 : 25
+      end
+      
+      if ssl
+        if !ssl.is_a OpenSSL::SSL::SSLContext
+          ssl = OpenSSL::SSL::SSLContext.new
+          ssl.verify_mode = OpenSSL::SSL::VERIFY_PEER
+        end
+        if ssl.cert_store.nil?
+          ssl.cert_store = OpenSSL::X509::Store.new
+          ssl.cert_store.set_default_paths
+        end
+        @options[:ssl] = ssl
+      end
+      
       @host = host
       @port = port
       @reactor = Ione::Io::IoReactor.new
@@ -14,7 +32,7 @@ module Sumpter
 
     def start
       @reactor.start
-      .then { @reactor.connect(@host, @port) }
+      .then { @reactor.connect(@host, @port, @options) }
       .then { |conn| @handler.start(conn) }
       .map(self)
     end
