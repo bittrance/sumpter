@@ -50,8 +50,8 @@ describe 'dialog' do
   cases = [
     {
       desc: 'simple input, no pipelining',
-      sendargs: [
-        ['from@me.com', 'to@you.com', StringIO.new('message')]
+      calls: [
+        ['send', 'from@me.com', 'to@you.com', StringIO.new('message')]
       ],
       returns: [true],
       dialog: [
@@ -65,9 +65,9 @@ describe 'dialog' do
     },
     {
       desc: 'two consecutive mail input, no pipelining',
-      sendargs: [
-        ['from@me.com', 'to@you.com', StringIO.new('message1')],
-        ['from@me.com', 'to@alterego.com', StringIO.new('message2')]
+      calls: [
+        ['send', 'from@me.com', 'to@you.com', StringIO.new('message1')],
+        ['send', 'from@me.com', 'to@alterego.com', StringIO.new('message2')]
       ],
       returns: [true, true],
       dialog: [
@@ -85,8 +85,8 @@ describe 'dialog' do
     },
     {
       desc: 'pipelining, two recipients',
-      sendargs: [
-        ['from@me.com', ['to@you.com', 'cc@you.com'], StringIO.new('message')],
+      calls: [
+        ['send', 'from@me.com', ['to@you.com', 'cc@you.com'], StringIO.new('message')],
       ],
       returns: [true],
       dialog: [
@@ -97,13 +97,27 @@ describe 'dialog' do
         ["250 OK\r\n", nil]
       ]
     },
+    # Test infrastructure can't test this right now
+    # {
+    #   desc: 'authenticating with login when recommended',
+    #   calls: [
+    #     ['auth', 'username', 'password']
+    #   ],
+    #   returns: [true],
+    #   dialog: [
+    #     ["220 testscript\r\n", /ehlo client/i],
+    #     ["250 AUTH LOGIN\r\n", /auth login dXNlcm5hbWU=/im],
+    #     ["334 UGFzc3dvcmQ6\r\n", /cGFzc3dvcmQ=/i],
+    #     ["235 successful\r\n", nil]
+    #   ]
+    # },
     #
     # # Error cases below
     #
     {
       desc: 'invalid from address',
-      sendargs: [
-        ['@', 'to@you.com', StringIO.new('message')]
+      calls: [
+        ['send', '@', 'to@you.com', StringIO.new('message')]
       ],
       returns: [false],
       dialog: [
@@ -111,11 +125,11 @@ describe 'dialog' do
         ["250 mailserver.example.com.\r\n", /mail from.*/i],
         ["501 Bad sender\r\n", nil]
       ]
-    },    
+    },
     {
       desc: 'pipelining, bad sender',
-      sendargs: [
-        ['@', 'to@you.com', StringIO.new('message')],
+      calls: [
+        ['send', '@', 'to@you.com', StringIO.new('message')],
       ],
       returns: [false],
       dialog: [
@@ -128,7 +142,7 @@ describe 'dialog' do
 
     # {
     #   desc: 'invalid from address followed by well-formatted send',
-    #   sendargs: [
+    #   calls: [
     #     ['@', 'to@you.com', StringIO.new('message')],
     #     ['from@me.com', 'to@you.com', StringIO.new('message1')]
     #   ],
@@ -158,10 +172,15 @@ describe 'dialog' do
     it 'should handle ' + onecase[:desc] do
       actor = Sumpter::SMTPDialog.new
       conn = MockConnection.new
-      actor.start conn
       futures = []
-      onecase[:sendargs].each do |args|
-        futures << actor.send(*args)
+      actor.start conn
+      onecase[:calls].each do |call, *args|
+        case call
+        when 'auth'
+          futures << actor.auth(*args)
+        when 'send'
+          futures << actor.send(*args)
+        end
       end
       assert_dialog(conn, actor, onecase[:dialog])
 

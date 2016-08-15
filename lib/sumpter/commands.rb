@@ -8,10 +8,10 @@ module Sumpter
       @result = result
     end
   end
-  
+
   class BaseCommand
     attr_accessor :promise
-    
+
     def is_pipelining?
       false
     end
@@ -78,11 +78,44 @@ module Sumpter
     end
   end
 
+  class LoginAuthCommand < BaseCommand
+    def initialize(user, pass)
+      @username = user
+      @password = pass
+      @state = 'username'
+    end
+
+    def generate
+      case @state
+      when 'username'
+        hash = Base64.strict_encode64("#{@username}")
+        yield "AUTH LOGIN #{hash}\r\n"
+      when 'password'
+        hash = Base64.strict_encode64("#{@password}")
+        yield "#{hash}\r\n"
+      else
+        raise CommandException.new('Unexpected phase when performing AUTH LOGIN')
+      end
+    end
+
+    def receive(line)
+      maybe_fail(line)
+      case @state
+      when 'username'
+        @state = 'password'
+        return nil
+      when 'password'
+        @stete = 'done'
+        return [self] + line
+      end
+    end
+  end
+
   class MailCommand < BaseCommand
     def initialize(sender)
       @sender = sender
     end
-    
+
     def is_pipelining?
       true
     end

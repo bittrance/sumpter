@@ -3,6 +3,12 @@ require "sumpter/commands"
 require "sumpter/parser"
 
 module Sumpter
+  class DialogException < Exception
+    def initialize(message)
+      super
+    end
+  end
+
   class SMTPDialog
     # TODO: tests for this property
     attr_reader :state
@@ -32,21 +38,39 @@ module Sumpter
     end
 
     def auth(user, pass)
-      # TODO: Check capabilities when it arrives
-      add_action_group [ PlainAuthCommand.new(user, pass) ]
+      p = @capabilities.index { |lmnt| /^auth[ =]/i.match lmnt }
+      eligible = []
+      if p
+        match = /auth[ =](.*)/i.match @capabilities[p]
+        methods = match[0].split(" ")
+        #methods.map! { |lmnt| lmnt.upcase }
+        eligible = ['PLAIN', 'LOGIN'].select { |lmnt| methods.index(lmnt) }
+      end
+
+      if eligible.empty?
+        raise DialogException.new('No compatible auth method')
+      end
+
+      case eligible[0]
+      when "LOGIN"
+        auth = LoginAuthCommand.new(user, pass)
+        login = [ auth, auth ]
+      when "PLAIN"
+        login = [ PlainAuthCommand.new(user, pass) ]
+      end
+      add_action_group login
     end
 
     def send(from, to, payload)
       # TODO: Guard state dead?
       # start if @state == 'pending' # FIXME: This is a future!
       to = to.is_a?(String) ? [to] : to
-      future = add_action_group [
+      add_action_group [
         MailCommand.new(from),
         *to.map { |recipient| RcptCommand.new(recipient) },
         DataCommand.new,
         PayloadCommand.new(payload)
       ]
-      future
     end
 
     def quit
