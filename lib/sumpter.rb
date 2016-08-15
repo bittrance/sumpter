@@ -4,6 +4,14 @@ require "sumpter/dialog"
 require "sumpter/version"
 
 module Sumpter
+  class NullLoger < Logger
+    def initialize(*args)
+    end
+    
+    def add(*args, &block)
+    end 
+  end
+  
   class AsyncClient
     def initialize(host, port = nil, ssl = false)
       @options = {}
@@ -27,7 +35,12 @@ module Sumpter
       @host = host
       @port = port
       @reactor = Ione::Io::IoReactor.new
-      @handler = SMTPDialog.new
+      @handler = SMTPDialog.new(NullLogger.new)
+    end
+    
+    def set_logger(logger)
+      @handler.logger = logger
+      @logger = logger
     end
 
     def start
