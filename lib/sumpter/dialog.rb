@@ -24,17 +24,17 @@ module Sumpter
     # TODO: test explicit start
     def start(connection)
       @connection = connection
+      @await_reply << [nil, InitCommand.new]
+      @connection.on_data(&method(:read))
       # TODO: guard @state == 'pending'
       # TODO: if resulting promse fails, QuitCommand and die
-      f = add_action_group [ EhloCommand.new("client") ]
-      f = f.then do |res|
+      # TODO: it is polite to supply hostname/ip as client
+      add_action_group([ EhloCommand.new("client") ])
+      .then do |res|
         cmd, status, *caps = res
         @capabilities = caps
         res
       end
-      @await_reply << [nil, InitCommand.new]
-      @connection.on_data(&method(:read))
-      f
     end
 
     def auth(user, pass)
@@ -43,7 +43,6 @@ module Sumpter
       if p
         match = /auth[ =](.*)/i.match @capabilities[p]
         methods = match[0].split(" ")
-        #methods.map! { |lmnt| lmnt.upcase }
         eligible = ['PLAIN', 'LOGIN'].select { |lmnt| methods.index(lmnt) }
       end
 
@@ -53,8 +52,7 @@ module Sumpter
 
       case eligible[0]
       when "LOGIN"
-        auth = LoginAuthCommand.new(user, pass)
-        login = [ auth, auth ]
+        login = [ LoginAuthCommand.new(user, pass) ] * 2
       when "PLAIN"
         login = [ PlainAuthCommand.new(user, pass) ]
       end

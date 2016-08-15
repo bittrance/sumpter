@@ -7,13 +7,13 @@ module Sumpter
   class AsyncClient
     def initialize(host, port = nil, ssl = false)
       @options = {}
-      
+
       if port.nil?
         port = !ssl.nil? ? 465 : 25
       end
-      
+
       if ssl
-        if !ssl.is_a OpenSSL::SSL::SSLContext
+        if !ssl.is_a? OpenSSL::SSL::SSLContext
           ssl = OpenSSL::SSL::SSLContext.new
           ssl.verify_mode = OpenSSL::SSL::VERIFY_PEER
         end
@@ -23,7 +23,7 @@ module Sumpter
         end
         @options[:ssl] = ssl
       end
-      
+
       @host = host
       @port = port
       @reactor = Ione::Io::IoReactor.new
@@ -46,9 +46,8 @@ module Sumpter
     end
 
     def stop
-      @handler.quit.then {
-        @reactor.stop
-      }
+      @handler.quit
+      .then { @reactor.stop }
     end
   end
 
@@ -62,6 +61,10 @@ module Sumpter
     end
 
     def send(from, to, message)
+      Ione::Future.await(super)
+    end
+
+    def stop
       Ione::Future.await(super)
     end
   end
