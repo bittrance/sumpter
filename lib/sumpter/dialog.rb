@@ -29,7 +29,7 @@ module Sumpter
       # TODO: guard @state == 'pending'
       # TODO: if resulting promse fails, QuitCommand and die
       # TODO: it is polite to supply hostname/ip as client
-      add_action_group([ EhloCommand.new("client") ])
+      add_action_group([ EhloCommand.new ])
       .then do |res|
         cmd, status, *caps = res
         @capabilities = caps

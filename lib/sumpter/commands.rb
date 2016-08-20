@@ -1,4 +1,5 @@
 require 'base64'
+require 'socket'
 
 module Sumpter
   class CommandException < Exception
@@ -47,7 +48,7 @@ module Sumpter
   end
 
   class EhloCommand < BaseCommand
-    def initialize(hostname)
+    def initialize(hostname = Socket.gethostname)
       @hostname = hostname
     end
 

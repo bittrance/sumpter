@@ -55,7 +55,7 @@ describe 'dialog' do
       ],
       returns: [true],
       dialog: [
-        ["220 testscript\r\n", /ehlo client/i],
+        ["220 testscript\r\n", /ehlo .+/i],
         ["250 mailserver.example.com.\r\n", /mail.*<from@me.com>/i],
         ["250 OK\r\n", /rcpt.*<to@you.com>/i],
         ["250 OK\r\n", /data/i],
@@ -71,7 +71,7 @@ describe 'dialog' do
       ],
       returns: [true, true],
       dialog: [
-        ["220 testscript\r\n", /ehlo client/i],
+        ["220 testscript\r\n", /ehlo .+/i],
         ["250 mailserver.example.com.\r\n", /mail.*<from@me.com>/i],
         ["250 OK\r\n", /rcpt.*<to@you.com>/i],
         ["250 OK\r\n", /data/i],
@@ -90,7 +90,7 @@ describe 'dialog' do
       ],
       returns: [true],
       dialog: [
-        ["220 testscript\r\n", /ehlo client/i],
+        ["220 testscript\r\n", /ehlo .+/i],
         ["250-PIPELINING\r\n250 mailserver.example.com.\r\n",
           /mail.*from@me.com.*rcpt.*to@you.com.*cc@you.com.*data/im],
         ["250 OK\r\n250 OK\r\n250 OK\r\n354\r\n", /message/i],
@@ -121,7 +121,7 @@ describe 'dialog' do
       ],
       returns: [false],
       dialog: [
-        ["220 testscript\r\n", /ehlo client/i],
+        ["220 testscript\r\n", /ehlo .+/i],
         ["250 mailserver.example.com.\r\n", /mail from.*/i],
         ["501 Bad sender\r\n", nil]
       ]
@@ -133,7 +133,7 @@ describe 'dialog' do
       ],
       returns: [false],
       dialog: [
-        ["220 testscript\r\n", /ehlo client/i],
+        ["220 testscript\r\n", /ehlo .+/i],
         ["250-PIPELINING\r\n250 mailserver.example.com.\r\n",
           /mail.*rcpt.*to@you.com.*data/im],
         ["501 Bad sender\r\n550 No sender\r\n550 Not ready\r\n", nil]
@@ -199,7 +199,7 @@ describe 'dialog' do
     actor.start conn
     actor.send('from@me.com', 'to@you.com', StringIO.new('message1'))
     assert_dialog(conn, actor, [
-      ["220 testscript\r\n", /ehlo client/i],
+      ["220 testscript\r\n", /ehlo .+/i],
       ["250 mailserver.example.com.\r\n", /mail.*<from@me.com>/i],
       ["250 OK\r\n", /rcpt.*<to@you.com>/i],
       ["250 OK\r\n", /data/i],
