@@ -1,17 +1,24 @@
 require 'base64'
 
 module Sumpter
-  class CommandException < Exception
-    attr_reader :result
+  class FailureResponse < Exception
+    attr_reader :response
 
-    def initialize(result)
-      @result = result
+    def initialize(response)
+      @response = response
+    end
+    
+    def temporary?
+      @response[0] % 100 == 4
     end
   end
 
+  # A command instance must implement three parts (or depend on default implementations).
+  #
+  # generate: a generator that outputs strings that are fed to the server. The generate function is responsible for including the CRLF as needed.
+  # receive: the receive function will be called with an array containing the parsed reply from the server as follows: [<code>, *<lines>].
+  # is_pipelining?:
   class BaseCommand
-    attr_accessor :promise
-
     def is_pipelining?
       false
     end
@@ -31,7 +38,7 @@ module Sumpter
     def maybe_fail(line)
       status, *parsed = line
       if !is_success?(status)
-        raise CommandException.new([self] + line)
+        raise FailureResponse.new([self] + line)
       end
     end
 
@@ -112,6 +119,8 @@ module Sumpter
   end
 
   class MailCommand < BaseCommand
+    attr_reader :sender
+    
     def initialize(sender)
       @sender = sender
     end
@@ -130,6 +139,8 @@ module Sumpter
   end
 
   class RcptCommand < BaseCommand
+    attr_reader :recipient
+    
     def initialize(recipient)
       @recipient = recipient
     end
