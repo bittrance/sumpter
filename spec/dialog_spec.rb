@@ -1,5 +1,6 @@
 # require 'spec_helper'
 require 'ione'
+require 'logger'
 require 'sumpter/dialog'
 
 class MockConnection
@@ -21,9 +22,11 @@ class MockConnection
   end
 end
 
+logger = Logger.new STDOUT
+
 describe Sumpter::SMTPDialog do
   it 'should be async and startable' do
-    actor = Sumpter::SMTPDialog.new
+    actor = Sumpter::SMTPDialog.new(logger)
     r = Ione::Io::IoReactor.new
     conn = MockConnection.new
     f = r.start
@@ -170,7 +173,7 @@ describe 'dialog' do
 
   cases.each do |onecase|
     it 'should handle ' + onecase[:desc] do
-      actor = Sumpter::SMTPDialog.new
+      actor = Sumpter::SMTPDialog.new(logger)
       conn = MockConnection.new
       futures = []
       actor.start conn
@@ -194,7 +197,7 @@ describe 'dialog' do
   end
 
   it 'should handle spaced sends' do
-    actor = Sumpter::SMTPDialog.new
+    actor = Sumpter::SMTPDialog.new(logger)
     conn = MockConnection.new
     actor.start conn
     actor.send('from@me.com', 'to@you.com', StringIO.new('message1'))

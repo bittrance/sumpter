@@ -16,7 +16,7 @@ module Sumpter
 
     def initialize(logger)
       @logger = logger
-      
+
       @actions = []
       @await_reply = []
       @parser = BasicParser.new
@@ -80,7 +80,7 @@ module Sumpter
     end
 
     def read(data)
-      @logger.debug('<- ' + data)
+      @logger.debug('<- ' + data.chomp)
       @parser.receive(data) do |lines|
         p, action = @await_reply.shift
         begin
@@ -112,7 +112,7 @@ module Sumpter
       @state = 'running'
       p, action = @actions.shift
       action.generate { |data|
-        @logger.debug('-> ' + data)
+        @logger.debug('-> ' + data.chomp)
         @connection.write data
       }
       @await_reply << [p, action]
