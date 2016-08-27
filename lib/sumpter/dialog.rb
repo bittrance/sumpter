@@ -10,10 +10,13 @@ module Sumpter
   end
 
   class SMTPDialog
+    attr_accessor :logger
     # TODO: tests for this property
     attr_reader :state
 
-    def initialize
+    def initialize(logger)
+      @logger = logger
+
       @actions = []
       @await_reply = []
       @parser = BasicParser.new
@@ -77,7 +80,7 @@ module Sumpter
     end
 
     def read(data)
-      puts '<- ' + data
+      @logger.debug('<- ' + data.chomp)
       @parser.receive(data) do |lines|
         p, action = @await_reply.shift
         begin
@@ -109,7 +112,7 @@ module Sumpter
       @state = 'running'
       p, action = @actions.shift
       action.generate { |data|
-        puts '-> ' + data
+        @logger.debug('-> ' + data.chomp)
         @connection.write data
       }
       @await_reply << [p, action]
