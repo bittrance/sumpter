@@ -48,7 +48,7 @@ describe 'commands' do
 
   it 'mail from fails properly' do
     mail = Sumpter::MailCommand.new "user@here.example.com"
-    expect{ mail.receive [521, "You suck"] }.to raise_exception Sumpter::CommandException
+    expect{ mail.receive [521, "You suck"] }.to raise_exception Sumpter::FailureResponse
   end
 
   it 'rcpt to succeed' do
@@ -61,7 +61,7 @@ describe 'commands' do
 
   it 'rcpt to fails properly' do
     rcpt = Sumpter::RcptCommand.new "user@there.exapmle.com"
-    expect { rcpt.receive [521, 'You suck'] }.to raise_exception Sumpter::CommandException
+    expect { rcpt.receive [521, 'You suck'] }.to raise_exception Sumpter::FailureResponse
   end
 
   it 'data succeeds' do
@@ -85,7 +85,7 @@ describe 'commands' do
   it 'payload fails properly' do
     zemime = StringIO.new("A payload")
     payload = Sumpter::PayloadCommand.new zemime
-    expect{ payload.receive [521, 'Dont want it'] }.to raise_exception Sumpter::CommandException
+    expect{ payload.receive [521, 'Dont want it'] }.to raise_exception Sumpter::FailureResponse
   end
 
   it 'quit succeeds' do

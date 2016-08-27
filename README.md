@@ -1,8 +1,11 @@
 # Sumpter
 
-Sumpter is an asynchronous SMTP client geared towards high-volume mail sending and various advanced use cases, where you need detailed control over the SMTP dialog.
+Sumpter is an asynchronous SMTP client geared towards high-volume mail
+sending and various advanced use cases, where you need detailed control
+over the SMTP dialog.
 
-Sumpter depends on [Ione](https://github.com/iconara/ione) for its non-blocking action. Its future implementation will impact your code.
+Sumpter depends on [Ione](https://github.com/iconara/ione) for its
+non-blocking action. Its future implementation will impact your code.
 
 ## Installation
 
@@ -22,7 +25,8 @@ Or install it yourself as:
 
 ## Usage
 
-Sumpter provides both blocking and non-blocking interfaces. The simplest possible case:
+Sumpter provides both blocking and non-blocking interfaces. The simplest
+possible case:
 
 ```ruby
 client = Sumpter.syncClient('localhost', 25)
@@ -30,7 +34,8 @@ client.send('me@example.com', 'you@example.com', ...)
 client.stop
 ```
 
-A typical asynchronous use case. Note that Google require the account to be putt in 'less secure apps' mode for password access to work.
+A typical asynchronous use case. Note that Google require the account
+to be put in 'less secure apps' mode for password access to work.
 
 ```ruby
 require 'sumpter'
@@ -52,9 +57,9 @@ client.start
 }
 .then {
   Ione::Future.all(
-    client.send(me, '', msg.to_s),
-    client.send(me, '', msg.to_s),
-    client.send(me, '', msg.to_s)
+    client.send(me, 'list@example.com', msg.to_s),
+    client.send(me, 'archive@example.com', msg.to_s),
+    client.send(me, me, msg.to_s)
   )
 }
 .then { |results|
@@ -63,13 +68,17 @@ client.start
 ```
 There are many ways you can customize the SMTP dialog to your use case.
 
-As can be seen from the above example, each send operation (or indeed any operation against the server) will fulfill with an array:
+As can be seen from the above example, each send operation (or indeed
+  any operation against the server) will fulfill with an array:
 
 - command instance that failed or succeeded
 - response code
-- zero or more elements (normally one) representing the lines the server sent
+- zero or more elements (normally one) representing the lines the
+server sent
 
-In particular, the send() method will execute more than one command against the server, so in order to programmatically know which one failed, you could
+In particular, the send() method will execute more than one command
+against the server, so in order to programmatically know which one
+failed, you could
 
 ```ruby
 cmd, code, *lines = result
@@ -83,8 +92,9 @@ when Sumpter::DataCommand
   pute "Failed data command with #{lines[0]}"
 when Sumpter::PayloadCommand
 end
-
-Some actions may contain multiple commands and in order to know which one failed, 
+```
+Some actions may contain multiple commands and in order to know which
+one failed,
 
 ```ruby
 class NonFailingRcptCommand < RcptCommand
@@ -92,7 +102,7 @@ class NonFailingRcptCommand < RcptCommand
     super(to)
     @rejects = rejects
   end
-  
+
   def receive(line)
     if line[0] >= 400
       @rejects << [@to, *line]
@@ -103,7 +113,7 @@ end
 class MyStrategy < BaseStrategy
   def send(from, to, mail)
     rejects = []
-    return [ 
+    return [
       MailCommand.new(from),
       *to.each { |one| NonFailingRcptCommand.new(rejects, one) },
       DataCommand.new,
@@ -113,20 +123,22 @@ class MyStrategy < BaseStrategy
 end
 ```
 
-Note how we are reusing the standard commands for all the bits we don't want to change.
+Note how we are reusing the standard commands for all the bits we don't
+want to change.
 
 ## Implementation
 
-Sumpter is implemented as a queue of SMTP commands that are processed against the server connection one at a time. Each command is an instance of a command object that is first asked to generate a string (e.g. "EHLO me.example.com") and then receives a parsed server response.
-
-## Development
-
-TODO: write help
+Sumpter is implemented as a queue of SMTP commands that are processed
+against the server connection one at a time. Each command is an instance
+of a command object that is first asked to generate a string (e.g. "EHLO
+me.example.com") and then receives a parsed server response.
 
 ## Contributing
 
-Bug reports and pull requests are welcome on GitHub at https://github.com/bittrance/sumpter.
+Bug reports and pull requests are welcome on GitHub at
+https://github.com/bittrance/sumpter.
 
 ## License
 
-The gem is available as open source under the terms of the [MIT License](http://opensource.org/licenses/MIT).
+The gem is available as open source under the terms of the
+[MIT License](http://opensource.org/licenses/MIT).

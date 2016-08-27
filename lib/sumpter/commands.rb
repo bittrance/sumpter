@@ -7,16 +7,19 @@ module Sumpter
     def initialize(response)
       @response = response
     end
-    
+
     def temporary?
       @response[0] % 100 == 4
     end
   end
 
-  # A command instance must implement three parts (or depend on default implementations).
+  # A command instance must implement three parts (or depend on default
+  # implementations).
   #
-  # generate: a generator that outputs strings that are fed to the server. The generate function is responsible for including the CRLF as needed.
-  # receive: the receive function will be called with an array containing the parsed reply from the server as follows: [<code>, *<lines>].
+  # generate: a generator that outputs strings that are fed to the server.
+  # The generate function is responsible for including the CRLF as needed.
+  # receive: the receive function will be called with an array containing
+  # the parsed reply from the server as follows: [<code>, *<lines>].
   # is_pipelining?:
   class BaseCommand
     def is_pipelining?
@@ -101,7 +104,7 @@ module Sumpter
         hash = Base64.strict_encode64("#{@password}")
         yield "#{hash}\r\n"
       else
-        raise CommandException.new('Unexpected phase when performing AUTH LOGIN')
+        raise FailureResponse.new('Unexpected phase when performing AUTH LOGIN')
       end
     end
 
@@ -120,7 +123,7 @@ module Sumpter
 
   class MailCommand < BaseCommand
     attr_reader :sender
-    
+
     def initialize(sender)
       @sender = sender
     end
@@ -140,7 +143,7 @@ module Sumpter
 
   class RcptCommand < BaseCommand
     attr_reader :recipient
-    
+
     def initialize(recipient)
       @recipient = recipient
     end

@@ -83,7 +83,7 @@ module Sumpter
         begin
           res = action.receive lines
           p.fulfill(res) if !res.nil?
-        rescue Sumpter::CommandException => e
+        rescue Sumpter::FailureResponse => e
           p.fail(e) if !p.future.completed?
           # Remove all subsequent commands in this group as it has failed
           @actions.reject! { |cand, action| cand == p }

@@ -6,10 +6,15 @@ require "sumpter/version"
 module Sumpter
   # Asynchronous SMTP client.
   #
-  # All methods that interacts with the server return futures that either completes with a parsed response from the server or fails with an exception.
+  # All methods that interacts with the server return futures that
+  # either completes with a parsed response from the server or fails
+  #  with an exception.
   #
   # A fulfillment will have the form [command, response_code, *response_lines]
-  # A failure will have an exception. Assuming the failure is not internal to the lib it will be a FailureResponse, which indicates that the server sent a 4XX or 5XX respinse code. The response can be inspected in the exception's @response attribute.
+  # A failure will have an exception. Assuming the failure is not
+  # internal to the lib it will be a FailureResponse, which indicates
+  # that the server sent a 4XX or 5XX respinse code. The response can
+  # be inspected in the exception's @response attribute.
   # A comprehensive example:
   # @example
   #   client = Sumpter::AsyncClient.new('smtp.gmail.com', ssl=true)
@@ -22,7 +27,6 @@ module Sumpter
   #   .then {
   #     puts 'success'
   #   }
-  
   class AsyncClient
     # @param [String] host Hostname where SMTP server resides.
     # @param [int] port Port number where SMTP server resides. Defaults to 25 for unencrypted connections and 465 for TLS-based connections.
@@ -54,7 +58,10 @@ module Sumpter
 
     # Connect to SMTP server and handshake.
     #
-    # Returns a future thatbcompletes on successful connection and handshake. Currently, this operation must complete before you can continue using AsyncClient instance. In the future, this limitation will be removed.
+    # Returns a future thatbcompletes on successful connection and
+    # handshake. Currently, this operation must complete before you
+    # can continue using AsyncClient instance. In the future, this
+    # limitation will be removed.
     def start
       @reactor.start
       .then { @reactor.connect(@host, @port, @options) }
@@ -64,7 +71,9 @@ module Sumpter
 
     # Authenticate with server.
     #
-    # Returns a future that completes on successful autjentication. Currently, PLAIN and LOGIN methods are supported, using username/password credentials.
+    # Returns a future that completes on successful autjentication.
+    # Currently, PLAIN and LOGIN methods are supported, using
+    # username/password credentials.
     def auth(username, password)
       @handler.auth(username, password)
     end
