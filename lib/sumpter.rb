@@ -14,6 +14,8 @@ module Sumpter
   end
 
   class AsyncClient
+    include Actions
+
     def initialize(host, port = nil, ssl = false)
       @options = {}
 
@@ -51,20 +53,13 @@ module Sumpter
       .map(self)
     end
 
-    def auth(username, password)
-      @handler.auth(username, password)
-    end
-
-    def send(from, to, message)
-      @handler.send(from, to, message)
-    end
-
     def stop
       @handler.quit
       .then { @reactor.stop }
     end
   end
 
+  # TODO: SyncClient does not automatically "syncify" all methods inherited from included actions
   class SyncClient < AsyncClient
     def start
       Ione::Future.await(super)
@@ -74,7 +69,7 @@ module Sumpter
       Ione::Future.await(super)
     end
 
-    def send(from, to, message)
+    def mail(message, from, *to)
       Ione::Future.await(super)
     end
 

@@ -31,8 +31,7 @@ module Sumpter
       @connection.on_data(&method(:read))
       # TODO: guard @state == 'pending'
       # TODO: if resulting promse fails, QuitCommand and die
-      # TODO: it is polite to supply hostname/ip as client
-      add_action_group([ EhloCommand.new ])
+      @ready = add_action_group([ EhloCommand.new ])
       .then do |res|
         cmd, status, *caps = res
         @capabilities = caps
@@ -40,43 +39,18 @@ module Sumpter
       end
     end
 
-    def auth(user, pass)
-      p = @capabilities.index { |lmnt| /^auth[ =]/i.match lmnt }
-      eligible = []
-      if p
-        match = /auth[ =](.*)/i.match @capabilities[p]
-        methods = match[0].split(" ")
-        eligible = ['PLAIN', 'LOGIN'].select { |lmnt| methods.index(lmnt) }
-      end
-
-      if eligible.empty?
-        raise DialogException.new('No compatible auth method')
-      end
-
-      case eligible[0]
-      when "LOGIN"
-        login = [ LoginAuthCommand.new(user, pass) ] * 2
-      when "PLAIN"
-        login = [ PlainAuthCommand.new(user, pass) ]
-      end
-      add_action_group login
-    end
-
-    def send(from, to, payload)
-      # TODO: Guard state dead?
-      # start if @state == 'pending' # FIXME: This is a future!
-      to = to.is_a?(String) ? [to] : to
-      add_action_group [
-        MailCommand.new(from),
-        *to.map { |recipient| RcptCommand.new(recipient) },
-        DataCommand.new,
-        PayloadCommand.new(payload)
-      ]
-    end
-
     def quit
       # TODO: set @state = 'dead' when future completed - with tests!
       add_action_group [ QuitCommand.new ]
+    end
+
+    def perform_action(&action)
+      # TODO: Guard state dead?
+      # This is so that start will have populated capabilities
+      @ready.then {
+        group = *(action.call @capabilities)
+        add_action_group group
+      }
     end
 
     def read(data)
@@ -86,7 +60,7 @@ module Sumpter
         begin
           res = action.receive lines
           p.fulfill(res) if !res.nil?
-        rescue Sumpter::CommandException => e
+        rescue StandardError => e
           p.fail(e) if !p.future.completed?
           # Remove all subsequent commands in this group as it has failed
           @actions.reject! { |cand, action| cand == p }

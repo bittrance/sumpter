@@ -2,7 +2,7 @@ require 'base64'
 require 'socket'
 
 module Sumpter
-  class CommandException < Exception
+  class CommandException < StandardError
     attr_reader :result
 
     def initialize(result)
@@ -44,6 +44,17 @@ module Sumpter
   class InitCommand < BaseCommand
     def generate
       nil
+    end
+  end
+
+  class NoopCommand < BaseCommand
+    def generate
+      yield 'NOOP\n\r'
+    end
+
+    def receive(line)
+      maybe_fail(line)
+      [self] + line
     end
   end
 

@@ -25,197 +25,84 @@ end
 logger = Logger.new STDOUT
 
 describe Sumpter::SMTPDialog do
+  def await_timeout(f)
+    timeout = @r.schedule_timer(0.01).map('timeout')
+    Ione::Future.await(Ione::Future.first(f, timeout))
+  end
+
+  before(:all) do
+    @r = Ione::Io::IoReactor.new
+    Ione::Future.await(@r.start)
+  end
+
+  subject do
+    described_class.new logger
+  end
+
   it 'should be async and startable' do
-    actor = Sumpter::SMTPDialog.new(logger)
-    r = Ione::Io::IoReactor.new
     conn = MockConnection.new
-    f = r.start
-    f = f.then do
-      ready = actor.start conn
-      actor.read "220 testscript\r\n"
-      expect(conn.get_answer).to match(/ehlo.*/i)
-      actor.read "250 mail.example.com.\r\n"
-
-      timeout = r.schedule_timer(0.01).map('timeout')
-      Ione::Future.first(ready, timeout)
-    end
-    f.on_failure { |err| puts err }
-
-    cmd, *result = f.value
+    ready = subject.start conn
+    subject.read "220 testscript\r\n"
+    expect(conn.get_answer).to match(/ehlo.*/i)
+    subject.read "250 mail.example.com.\r\n"
+    cmd, *result = await_timeout(ready)
     expect(result).to eq([250, "mail.example.com."])
   end
 
-  # TODO: test that proves we can accept send before start is done
-
-end
-
-describe 'dialog' do
-  cases = [
-    {
-      desc: 'simple input, no pipelining',
-      calls: [
-        ['send', 'from@me.com', 'to@you.com', StringIO.new('message')]
-      ],
-      returns: [true],
-      dialog: [
-        ["220 testscript\r\n", /ehlo .+/i],
-        ["250 mailserver.example.com.\r\n", /mail.*<from@me.com>/i],
-        ["250 OK\r\n", /rcpt.*<to@you.com>/i],
-        ["250 OK\r\n", /data/i],
-        ["354\r\n", /message/i],
-        ["250 queued as XYZ\r\n", nil]
-      ]
-    },
-    {
-      desc: 'two consecutive mail input, no pipelining',
-      calls: [
-        ['send', 'from@me.com', 'to@you.com', StringIO.new('message1')],
-        ['send', 'from@me.com', 'to@alterego.com', StringIO.new('message2')]
-      ],
-      returns: [true, true],
-      dialog: [
-        ["220 testscript\r\n", /ehlo .+/i],
-        ["250 mailserver.example.com.\r\n", /mail.*<from@me.com>/i],
-        ["250 OK\r\n", /rcpt.*<to@you.com>/i],
-        ["250 OK\r\n", /data/i],
-        ["354\r\n", /message/i],
-        ["250 queued as XYZ\r\n", /mail.*<from@me.com>/i],
-        ["250 OK\r\n", /rcpt.*<to@alterego.com>/i],
-        ["250 OK\r\n", /data/i],
-        ["354\r\n", /message/i],
-        ["250\r\n", nil]
-      ]
-    },
-    {
-      desc: 'pipelining, two recipients',
-      calls: [
-        ['send', 'from@me.com', ['to@you.com', 'cc@you.com'], StringIO.new('message')],
-      ],
-      returns: [true],
-      dialog: [
-        ["220 testscript\r\n", /ehlo .+/i],
-        ["250-PIPELINING\r\n250 mailserver.example.com.\r\n",
-          /mail.*from@me.com.*rcpt.*to@you.com.*cc@you.com.*data/im],
-        ["250 OK\r\n250 OK\r\n250 OK\r\n354\r\n", /message/i],
-        ["250 OK\r\n", nil]
-      ]
-    },
-    # Test infrastructure can't test this right now
-    # {
-    #   desc: 'authenticating with login when recommended',
-    #   calls: [
-    #     ['auth', 'username', 'password']
-    #   ],
-    #   returns: [true],
-    #   dialog: [
-    #     ["220 testscript\r\n", /ehlo client/i],
-    #     ["250 AUTH LOGIN\r\n", /auth login dXNlcm5hbWU=/im],
-    #     ["334 UGFzc3dvcmQ6\r\n", /cGFzc3dvcmQ=/i],
-    #     ["235 successful\r\n", nil]
-    #   ]
-    # },
-    #
-    # # Error cases below
-    #
-    {
-      desc: 'invalid from address',
-      calls: [
-        ['send', '@', 'to@you.com', StringIO.new('message')]
-      ],
-      returns: [false],
-      dialog: [
-        ["220 testscript\r\n", /ehlo .+/i],
-        ["250 mailserver.example.com.\r\n", /mail from.*/i],
-        ["501 Bad sender\r\n", nil]
-      ]
-    },
-    {
-      desc: 'pipelining, bad sender',
-      calls: [
-        ['send', '@', 'to@you.com', StringIO.new('message')],
-      ],
-      returns: [false],
-      dialog: [
-        ["220 testscript\r\n", /ehlo .+/i],
-        ["250-PIPELINING\r\n250 mailserver.example.com.\r\n",
-          /mail.*rcpt.*to@you.com.*data/im],
-        ["501 Bad sender\r\n550 No sender\r\n550 Not ready\r\n", nil]
-      ]
-    },
-
-    # {
-    #   desc: 'invalid from address followed by well-formatted send',
-    #   calls: [
-    #     ['@', 'to@you.com', StringIO.new('message')],
-    #     ['from@me.com', 'to@you.com', StringIO.new('message1')]
-    #   ],
-    #   dialog: [
-    #     ["220 testscript\r\n", /ehlo client/i],
-    #     ["250 mailserver.example.com.\r\n", /mail from.*/i],
-    #     ["501 Bad sender\r\n", /mail.*<from@me.com>/i], # crap, let's try next message
-    #     ["250 OK\r\n", /rcpt.*<to@alterego.com>/i],
-    #     ["250 OK\r\n", /data/i],
-    #     ["354\r\n", /message/i],
-    #     ["250\r\n", nil]
-    #   ]
-    # }
-
-  ]
-
-  def assert_dialog(conn, actor, dialog)
-    dialog.each do |input, output|
-      actor.read input if input
-      answer = conn.get_answer
-      expect(answer).to eq('') unless output
-      expect(answer).to match(output) if output
-    end
-  end
-
-  cases.each do |onecase|
-    it 'should handle ' + onecase[:desc] do
-      actor = Sumpter::SMTPDialog.new(logger)
-      conn = MockConnection.new
-      futures = []
-      actor.start conn
-      onecase[:calls].each do |call, *args|
-        case call
-        when 'auth'
-          futures << actor.auth(*args)
-        when 'send'
-          futures << actor.send(*args)
-        end
-      end
-      assert_dialog(conn, actor, onecase[:dialog])
-
-      # Check the returned futures
-      unfinished = futures.any? { |future| !future.completed? }
-      expect(unfinished).to eq(false)
-      futures.zip(onecase[:returns]).each do |future, expected|
-        expect(future.resolved?).to eq(expected)
-      end
-    end
-  end
-
-  it 'should handle spaced sends' do
-    actor = Sumpter::SMTPDialog.new(logger)
+  it 'should queue groups until it is properly started' do
+    seen = []
+    noop = Sumpter::NoopCommand.new
     conn = MockConnection.new
-    actor.start conn
-    actor.send('from@me.com', 'to@you.com', StringIO.new('message1'))
-    assert_dialog(conn, actor, [
-      ["220 testscript\r\n", /ehlo .+/i],
-      ["250 mailserver.example.com.\r\n", /mail.*<from@me.com>/i],
-      ["250 OK\r\n", /rcpt.*<to@you.com>/i],
-      ["250 OK\r\n", /data/i],
-      ["354\r\n", /message/i],
-      ["250 queued as XYZ\r\n", nil],
-    ])
-    actor.send('from@me.com', 'to@alterego.com', StringIO.new('message2'))
-    assert_dialog(conn, actor, [
-      [nil, /mail.*<from@me.com>/i],
-      ["250 OK\r\n", /rcpt.*<to@alterego.com>/i],
-      ["250 OK\r\n", /data/i],
-      ["354\r\n", /message/i],
-      ["250\r\n", nil]
-    ])
+    f1 = subject.start conn
+    f2 = subject.perform_action { |capabilities|
+      seen += capabilities
+      [noop]
+    }
+
+    subject.read "220 testscript\r\n"
+    expect(conn.get_answer).to match(/ehlo.*/i)
+    subject.read "250-STARTTLS\r\n250 mail.example.com\r\n"
+    await_timeout f1
+    subject.read "250 Ok\r\n"
+    result = await_timeout f2
+
+    expect(result).to eq([noop, 250, 'Ok'])
+    expect(seen).to include('STARTTLS')
+  end
+
+  class BadGenerateCommand < Sumpter::NoopCommand
+    def generate
+      raise 'Bad developer!'
+    end
+  end
+
+  it 'should propagate exceptions from commands generate' do
+    conn = MockConnection.new
+    f1 = subject.start conn
+    f2 = subject.perform_action { BadGenerateCommand.new }
+    subject.read "220 testscript\r\n"
+    expect(conn.get_answer).to match(/ehlo.*/i)
+    subject.read "250-STARTTLS\r\n250 mail.example.com\r\n"
+    await_timeout f1
+    expect(f2.failed?).to be(true)
+  end
+
+  class BadReceiveCommand < Sumpter::NoopCommand
+    def receive(line)
+      raise 'Bad developer!'
+    end
+  end
+
+  it 'should propagate exceptions from commands receive' do
+    conn = MockConnection.new
+    f1 = subject.start conn
+    f2 = subject.perform_action  { BadReceiveCommand.new }
+    subject.read "220 testscript\r\n"
+    expect(conn.get_answer).to match(/ehlo.*/i)
+    subject.read "250-STARTTLS\r\n250 mail.example.com\r\n"
+    await_timeout f1
+    expect(f2.failed?).to be(false)
+    subject.read "250 Ok\r\n"
+    expect(f2.failed?).to be(true)
   end
 end
